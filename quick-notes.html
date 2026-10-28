@@ -1,0 +1,370 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Quick Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one centered column. Header, composer, then a responsive grid of notes. */
+:root {
+  --bg: #fdeff3;
+  --surface: #fff8fa;
+  --card: #ffffff;
+  --ink: #4a2a36;
+  --muted: #9b6e7c;
+  --accent: #d4497a;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbd6e2;
+  --line: #f2cbd8;
+  --danger: #a33a4f;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 24px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 760px; margin: 0 auto; min-width: 0; }
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+h1 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.count { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+input, textarea, button { font: inherit; color: inherit; }
+input[type="search"], input[type="text"], textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  outline: none;
+}
+input:focus, textarea:focus, button:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
+.search { margin-bottom: 16px; }
+
+.composer {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.composer.editing { border-color: var(--accent); }
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.status { flex: 1 1 auto; min-width: 0; color: var(--muted); font-size: 13px; }
+
+button {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 500;
+}
+button:hover { border-color: var(--accent); }
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+button.primary:hover { filter: brightness(0.95); }
+button[hidden] { display: none !important; }
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.note {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.note.editing { border-color: var(--accent); }
+.note h2 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.note h2.untitled { color: var(--muted); font-style: italic; font-weight: 500; font-family: "Figtree", system-ui, sans-serif; font-size: 15px; }
+.note p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; margin-top: auto; }
+.note-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.note-actions button { padding: 4px 11px; font-size: 13px; }
+.note-actions .danger { color: var(--danger); }
+.note-actions .danger.armed { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  margin: 0;
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main class="app">
+  <header class="top">
+    <h1>Quick Notes</h1>
+    <span id="count" class="count"></span>
+  </header>
+
+  <div class="search">
+    <input id="search" type="search" placeholder="Search your notes" aria-label="Search notes">
+  </div>
+
+  <section class="composer" id="composer" aria-label="Write a note">
+    <input id="title" type="text" maxlength="80" placeholder="Title (optional)" aria-label="Note title">
+    <textarea id="body" placeholder="Jot something down…" aria-label="Note text"></textarea>
+    <div class="row">
+      <span id="status" class="status" role="status" aria-live="polite"></span>
+      <button id="cancel" type="button" hidden>Cancel</button>
+      <button id="save" type="button" class="primary">Save note</button>
+    </div>
+  </section>
+
+  <ul id="list" class="grid" aria-label="Notes"></ul>
+  <p id="empty" class="empty" hidden>No notes yet. Write your first one above.</p>
+</main>
+
+<script>
+(function () {
+  var KEY = "quick-notes-v1";
+  var notes = load();
+  var editingId = null;
+  var query = "";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var listEl = $("list"), emptyEl = $("empty"), countEl = $("count"), statusEl = $("status");
+  var titleEl = $("title"), bodyEl = $("body"), saveBtn = $("save"), cancelBtn = $("cancel");
+  var composer = $("composer"), searchEl = $("search");
+
+  function load() {
+    try {
+      var v = JSON.parse(localStorage.getItem(KEY) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+
+  function persist() {
+    try { localStorage.setItem(KEY, JSON.stringify(notes)); return true; }
+    catch (e) { setStatus("Couldn't save to this browser. Your note is still on screen."); return false; }
+  }
+
+  var statusTimer = null;
+  function setStatus(text) {
+    statusEl.textContent = text;
+    clearTimeout(statusTimer);
+    if (text) statusTimer = setTimeout(function () { statusEl.textContent = ""; }, 2500);
+  }
+
+  function fmt(ts) {
+    try {
+      return new Date(ts).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
+
+  function render() {
+    var q = query.trim().toLowerCase();
+    var shown = notes
+      .filter(function (n) {
+        if (!q) return true;
+        return (n.title || "").toLowerCase().indexOf(q) !== -1 || (n.body || "").toLowerCase().indexOf(q) !== -1;
+      })
+      .sort(function (a, b) { return b.updated - a.updated; });
+
+    listEl.textContent = "";
+    shown.forEach(function (n) {
+      var li = document.createElement("li");
+      li.className = "note" + (n.id === editingId ? " editing" : "");
+
+      var h = document.createElement("h2");
+      if (n.title) { h.textContent = n.title; }
+      else { h.textContent = "Untitled"; h.className = "untitled"; }
+
+      var p = document.createElement("p");
+      p.textContent = n.body;
+
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = (n.updated !== n.created ? "Edited " : "") + fmt(n.updated);
+
+      var actions = document.createElement("div");
+      actions.className = "note-actions";
+
+      var edit = document.createElement("button");
+      edit.type = "button";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", function () { startEdit(n.id); });
+
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "danger";
+      del.textContent = "Delete";
+      del.addEventListener("click", function () {
+        // Two-step confirm built into the page: first click arms, second deletes.
+        if (!del.classList.contains("armed")) {
+          del.classList.add("armed");
+          del.textContent = "Sure?";
+          setTimeout(function () {
+            del.classList.remove("armed");
+            del.textContent = "Delete";
+          }, 3000);
+          return;
+        }
+        removeNote(n.id);
+      });
+
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      li.appendChild(h);
+      li.appendChild(p);
+      li.appendChild(meta);
+      li.appendChild(actions);
+      listEl.appendChild(li);
+    });
+
+    var total = notes.length;
+    countEl.textContent = total === 1 ? "1 note" : total + " notes";
+    emptyEl.hidden = total !== 0;
+    if (total !== 0 && shown.length === 0) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = "No notes match “" + query.trim() + "”.";
+    } else if (total !== 0) {
+      emptyEl.textContent = "";
+    } else {
+      emptyEl.textContent = "No notes yet. Write your first one above.";
+    }
+  }
+
+  function resetForm() {
+    editingId = null;
+    titleEl.value = "";
+    bodyEl.value = "";
+    saveBtn.textContent = "Save note";
+    cancelBtn.hidden = true;
+    composer.classList.remove("editing");
+  }
+
+  function startEdit(id) {
+    var n = notes.find(function (x) { return x.id === id; });
+    if (!n) return;
+    editingId = id;
+    titleEl.value = n.title || "";
+    bodyEl.value = n.body || "";
+    saveBtn.textContent = "Update note";
+    cancelBtn.hidden = false;
+    composer.classList.add("editing");
+    bodyEl.focus();
+    bodyEl.setSelectionRange(bodyEl.value.length, bodyEl.value.length);
+    render();
+    composer.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function saveNote() {
+    var body = bodyEl.value.trim();
+    var title = titleEl.value.trim();
+    if (!body && !title) {
+      setStatus("Add some text before saving.");
+      bodyEl.focus();
+      return;
+    }
+    if (!body) body = "";
+    var now = Date.now();
+
+    if (editingId) {
+      var n = notes.find(function (x) { return x.id === editingId; });
+      if (n) { n.title = title; n.body = body; n.updated = now; }
+      if (persist()) setStatus("Note updated.");
+    } else {
+      notes.push({
+        id: now.toString(36) + Math.random().toString(36).slice(2, 7),
+        title: title,
+        body: body,
+        created: now,
+        updated: now
+      });
+      if (persist()) setStatus("Note saved.");
+    }
+    resetForm();
+    render();
+  }
+
+  function removeNote(id) {
+    notes = notes.filter(function (n) { return n.id !== id; });
+    if (editingId === id) resetForm();
+    persist();
+    setStatus("Note deleted.");
+    render();
+  }
+
+  saveBtn.addEventListener("click", saveNote);
+  cancelBtn.addEventListener("click", function () { resetForm(); setStatus(""); render(); });
+  bodyEl.addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); saveNote(); }
+  });
+  titleEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); bodyEl.focus(); }
+  });
+  searchEl.addEventListener("input", function () { query = searchEl.value; render(); });
+
+  render();
+})();
+</script>
